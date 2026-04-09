@@ -1,0 +1,15 @@
+name: ATTN_CUDA
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - black
+  - cmake
+  - matplotlib
+  - seaborn
+  - tabulate
+  - ninja
+  - packaging
