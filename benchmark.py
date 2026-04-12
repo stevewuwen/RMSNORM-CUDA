@@ -111,7 +111,8 @@ KERNEL_MAPS = {
     2: ["PyTorch_Official_Compile", pytorch_official_compile_rms_norm_func],
     3: ["Triton_Custom", triton_rms_norm_func],
     4: ["CUDA_Native", rms_norm_cuda_native_func],
-    5: ["CUDA_Vec4", rms_norm_cuda_vec8_func],
+    5: ["CUDA_Vec8", rms_norm_cuda_vec8_func],
+    6: ["CUDA_Shared_Memory", rms_norm_cuda_shared_memory_func],
 }
 
 def verify_correctness(x, weight, tol=1e-3):
