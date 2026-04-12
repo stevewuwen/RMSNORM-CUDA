@@ -15,18 +15,18 @@ kernel_num = 0
 def pytorch_native_rms_norm_func(x, weight, eps=1e-6):
     # 输入形状: x: (..., hidden_size), weight: (hidden_size,)
     # 注意：计算 variance 时最好转为 fp32 防止溢出
-    x_fp32 = x.to(torch.float32)
-    variance = x_fp32.pow(2).mean(-1, keepdim=True)
+    variance = x.to(torch.float32).pow(2).mean(-1, keepdim=True)
     hidden_states = x * torch.rsqrt(variance + eps).to(x.dtype)
     return weight * hidden_states
 
+rms_norm = torch.nn.functional.rms_norm
+fast_rms_norm = torch.compile(rms_norm)
 # Kernel 1: PyTorch 官方实现 (PyTorch >= 2.4 引入了底层的 RMSNorm)
 def pytorch_official_rms_norm_func(x, weight, eps=1e-6):
-    if hasattr(torch.nn.functional, 'rms_norm'):
-        # args: input, normalized_shape, weight, bias, eps
-        return torch.nn.functional.rms_norm(x, (x.size(-1),), weight, eps)
-    else:
-        raise RuntimeError("torch.nn.functional.rms_norm requires PyTorch >= 2.4")
+    return rms_norm(x, (x.size(-1),), weight, eps)
+
+def pytorch_official_compile_rms_norm_func(x, weight, eps=1e-6):
+    return fast_rms_norm(x, (x.size(-1),), weight, eps)
 
 # Kernel 2: Triton 实现
 if HAS_TRITON:
@@ -80,8 +80,6 @@ else:
     def triton_rms_norm_func(x, weight, eps=1e-6):
         raise RuntimeError("Triton is not installed.")
 
-# 注册字典
-
 import sys
 sys.path.append('build')
 try:
@@ -91,22 +89,29 @@ except ImportError:
     HAS_NANOBIND = False
     print("Warning: rmsnorm_cuda not found. Kernel 3 (Nanobind) will not be available.")
 
-def cuda_native_rmsnorm_func(x, weight, eps=1e-6):
+def rms_norm_cuda_native_func(x, weight, eps=1e-6):
     if not HAS_NANOBIND:
         raise RuntimeError("rmsnorm_cuda not found")
-    # Cast to float32 as the kernel expects float*
-    x_fp32 = x.to(torch.float32).contiguous()
-    weight_fp32 = weight.to(torch.float32).contiguous()
-    y_fp32 = torch.empty_like(x_fp32)
+    y = torch.empty_like(x)
     stream = torch.cuda.current_stream().cuda_stream
-    rmsnorm_cuda.launch_rmsnorm(kernel_num, x_fp32, weight_fp32, y_fp32, eps, stream)
-    return y_fp32.to(x.dtype)
+    rmsnorm_cuda.launch_rmsnorm(kernel_num, x, weight, y, eps, stream)
+    return y
+
+def rms_norm_cuda_vec8_func(x, weight, eps=1e-6):
+    if not HAS_NANOBIND:
+        raise RuntimeError("rmsnorm_cuda not found")
+    y = torch.empty_like(x)
+    stream = torch.cuda.current_stream().cuda_stream
+    rmsnorm_cuda.launch_rmsnorm(kernel_num, x, weight, y, eps, stream)
+    return y
 
 KERNEL_MAPS = {
     0: ["PyTorch_Pure_Python", pytorch_native_rms_norm_func],
     1: ["PyTorch_Official", pytorch_official_rms_norm_func],
-    2: ["Triton_Custom", triton_rms_norm_func],
-    3: ["CUDA_Native", cuda_native_rmsnorm_func],
+    2: ["PyTorch_Official_Compile", pytorch_official_compile_rms_norm_func],
+    3: ["Triton_Custom", triton_rms_norm_func],
+    4: ["CUDA_Native", rms_norm_cuda_native_func],
+    5: ["CUDA_Vec4", rms_norm_cuda_vec8_func],
 }
 
 def verify_correctness(x, weight, tol=1e-3):
@@ -121,10 +126,8 @@ def verify_correctness(x, weight, tol=1e-3):
 
     # 获取当前选择的 Kernel 输出
     custom_out = KERNEL_MAPS[kernel_num][1](x, weight)
-
     # 验证一致性
     is_correct = torch.allclose(expected_out, custom_out, atol=tol, rtol=tol)
-
     if not is_correct:
         max_diff = torch.max(torch.abs(expected_out - custom_out)).item()
         print(f"[Error] Correctness validation failed for kernel {kernel_num}! Max Diff: {max_diff:.4f}")
@@ -146,7 +149,7 @@ def verify_correctness(x, weight, tol=1e-3):
 def benchmark():
     # LLM 常用的 Shape
     batch_size_l = [4]
-    seq_length_l = [128, 512, 1024, 2048, 4096]
+    seq_length_l = [128, 512, 1024, 2048, 4096, 8192]
     hidden_size_l = [4096] # 典型模型的 hidden_size, 如 Llama2-7B
     
     device = torch.device("cuda:0")
@@ -178,6 +181,16 @@ def benchmark():
             _ = KERNEL_MAPS[kernel_num][1](x, weight)
         end_event.record()
         torch.cuda.synchronize()
+
+        # 开启分析标记
+        if seqlen==1024:
+            torch.cuda.synchronize()
+            torch.cuda.cudart().cudaProfilerStart()  # 通知 ncu 开始记录
+
+            KERNEL_MAPS[kernel_num][1](x, weight)
+
+            torch.cuda.synchronize()
+            torch.cuda.cudart().cudaProfilerStop()   # 通知 ncu 停止记录
         
         avg_time_ms = start_event.elapsed_time(end_event) / iters
         avg_time_s = avg_time_ms / 1000.0
@@ -207,7 +220,6 @@ def get_args():
         type=int,
         default=0,
         choices=KERNEL_MAPS.keys(),
-        help="0: Pure Python API, 1: PyTorch Official, 2: Triton Custom, 3: Nanobind Custom"
     )
     return parser.parse_args()
 

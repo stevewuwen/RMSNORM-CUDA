@@ -5,3 +5,4 @@ build
 benchmark_results
 .clangd
 benchmark_results.png
+**/*.ncu-rep

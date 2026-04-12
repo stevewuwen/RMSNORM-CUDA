@@ -21,8 +21,8 @@ namespace nb = nanobind;
     }                                                                          \
   } while (0)
 
-void launch_rmsnorm_native(const float *d_input, const float *d_weight,
-                           float *d_output, int num_rows, int hidden_size,
+void launch_rmsnorm_native(const half *d_input, const half *d_weight,
+                           half *d_output, int num_rows, int hidden_size,
                            float epsilon, cudaStream_t stream = 0) {
   // 每个 Token (Row) 分配一个 Block
   dim3 grid(num_rows);
@@ -30,26 +30,47 @@ void launch_rmsnorm_native(const float *d_input, const float *d_weight,
   int block_size = 256;
   dim3 block(block_size);
 
-  rmsnorm_kernel<<<grid, block, 0, stream>>>(d_input, d_weight, d_output,
-                                             hidden_size, epsilon);
+  rms_norm_kernel<<<grid, block, 0, stream>>>(d_input, d_weight, d_output,
+                                              hidden_size, epsilon);
   CHECK_CUDA(cudaGetLastError());
 }
 
-void launch_rmsnorm_py(int kernel_num,
-                       nb::ndarray<float, nb::device::cuda> input,
-                       nb::ndarray<float, nb::device::cuda> weight,
-                       nb::ndarray<float, nb::device::cuda> output,
-                       float epsilon, uintptr_t stream = 0) {
+void launch_rmsnorm_vec8(const half *d_input, const half *d_weight,
+                         half *d_output, int num_rows, int hidden_size,
+                         float epsilon, cudaStream_t stream = 0) {
+  // 每个 Token (Row) 分配一个 Block
+  dim3 grid(num_rows);
+  // Block 大小通常设为 256 或 512 即可，如果 hidden_size 很小可以设小点
+  int block_size = 256;
+  dim3 block(block_size);
+  rms_norm_kernel_half_vec8<<<grid, block, 0, stream>>>(
+      d_input, d_weight, d_output, hidden_size, epsilon);
+  CHECK_CUDA(cudaGetLastError());
+}
+
+void launch_rmsnorm_py(int kernel_num, nb::ndarray<nb::device::cuda> input,
+                       nb::ndarray<nb::device::cuda> weight,
+                       nb::ndarray<nb::device::cuda> output, float epsilon,
+                       uintptr_t stream = 0) {
   int num_rows = 1;
   for (size_t i = 0; i < input.ndim() - 1; ++i) {
     num_rows *= input.shape(i);
   }
   int hidden_size = input.shape(input.ndim() - 1);
   switch (kernel_num) {
-  case 3:
-    launch_rmsnorm_native((const float *)input.data(),
-                          (const float *)weight.data(), (float *)output.data(),
-                          num_rows, hidden_size, epsilon, (cudaStream_t)stream);
+  case 4:
+    launch_rmsnorm_native(static_cast<const half *>(input.data()),
+                          static_cast<const half *>(weight.data()),
+                          static_cast<half *>(output.data()), num_rows,
+                          hidden_size, epsilon, (cudaStream_t)stream);
+    break;
+  case 5:
+    launch_rmsnorm_vec8(static_cast<const half *>(input.data()),
+                        static_cast<const half *>(weight.data()),
+                        static_cast<half *>(output.data()), num_rows,
+                        hidden_size, epsilon, (cudaStream_t)stream);
+    break;
+  default:
     break;
   }
 }

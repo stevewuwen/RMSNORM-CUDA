@@ -1,0 +1,14 @@
+==PROF== Connected to process 2860619 (/home/wenjun/miniconda3/envs/ATTN_CUDA/bin/python3.12)
+Running kernel 4: CUDA_Native on cuda:0.
+--------------------------------------------------------------------------------
+Shape(B=4, Seq= 128, Hidden=4096) | Time:   66.22 µs | Bandwidth:  126.8 GB/s
+Shape(B=4, Seq= 512, Hidden=4096) | Time:   72.18 µs | Bandwidth:  465.0 GB/s
+==PROF== Profiling "rms_norm_kernel" - 0: 0%....50%....100% - 37 passes
+Shape(B=4, Seq=1024, Hidden=4096) | Time:  139.91 µs | Bandwidth:  479.7 GB/s
+==PROF== Connected to process 2860781 (/home/wenjun/miniconda3/envs/ATTN_CUDA/bin/python3.12)
+Shape(B=4, Seq=2048, Hidden=4096) | Time:  272.77 µs | Bandwidth:  492.1 GB/s
+Shape(B=4, Seq=4096, Hidden=4096) | Time:  540.42 µs | Bandwidth:  496.7 GB/s
+Shape(B=4, Seq=8192, Hidden=4096) | Time: 1090.57 µs | Bandwidth:  492.3 GB/s
+==PROF== Disconnected from process 2860781
+==PROF== Disconnected from process 2860619
+==PROF== Report: /home/wenjun/RMSNORM_CUDA/ncu_reports/my_report.ncu-rep
