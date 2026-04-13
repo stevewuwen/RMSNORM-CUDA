@@ -8,7 +8,7 @@
 // RMSNorm Kernel
 // ---------------------------------------------------------
 // 网格映射：一个 Block 处理一个 Row (Token)
-__global__ void rms_norm_kernel_shared_memory(
+__global__ void __launch_bounds__(1024, 1) rms_norm_kernel_shared_memory(
     const half *__restrict__ input,  // [num_rows, hidden_size]
     const half *__restrict__ weight, // [hidden_size]
     half *__restrict__ output,       // [num_rows, hidden_size]

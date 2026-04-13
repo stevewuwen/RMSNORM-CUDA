@@ -6,3 +6,4 @@ benchmark_results
 .clangd
 benchmark_results.png
 **/*.ncu-rep
+unsloth_compiled_cache

@@ -7,6 +7,9 @@
 环境：python3.12, torch 2.8(cuda 12.6), nvcc(cuda 12.6), 显卡驱动(cuda 13.0)
 torch: pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu126
 flash_attn: pip install https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.8cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
+vllm: pip install vllm==0.11.0 (只支持torch2.8)
+在编译unsloth时需要修改c++环境：
+export LD_LIBRARY_PATH=/home/wenjun/miniconda3/envs/ATTN_CUDA/lib:$LD_LIBRARY_PATH
 
 ### ncu分析
 对一个算子使用NVIDIA Nsight Compute分析时，要避免python、torch、nanobind的开销，因此要在预热后显示开启分析和结束分析，让其只分析一个kernel：

@@ -53,8 +53,8 @@ void launch_rmsnorm_shared_memory(const half *d_input, const half *d_weight,
                                   float epsilon, cudaStream_t stream = 0) {
   // 每个 Token (Row) 分配一个 Block
   dim3 grid(num_rows);
-  // Block 大小通常设为 256 或 512 即可，如果 hidden_size 很小可以设小点
-  int block_size = 256;
+  // 试试 1024
+  int block_size = 1024;
   dim3 block(block_size);
 
   int shared_mem_size = hidden_size * sizeof(half);
@@ -74,19 +74,19 @@ void launch_rmsnorm_py(int kernel_num, nb::ndarray<nb::device::cuda> input,
   }
   int hidden_size = input.shape(input.ndim() - 1);
   switch (kernel_num) {
-  case 4:
+  case 6:
     launch_rmsnorm_native(static_cast<const half *>(input.data()),
                           static_cast<const half *>(weight.data()),
                           static_cast<half *>(output.data()), num_rows,
                           hidden_size, epsilon, (cudaStream_t)stream);
     break;
-  case 5:
+  case 7:
     launch_rmsnorm_vec8(static_cast<const half *>(input.data()),
                         static_cast<const half *>(weight.data()),
                         static_cast<half *>(output.data()), num_rows,
                         hidden_size, epsilon, (cudaStream_t)stream);
     break;
-  case 6:
+  case 8:
     launch_rmsnorm_shared_memory(static_cast<const half *>(input.data()),
                                  static_cast<const half *>(weight.data()),
                                  static_cast<half *>(output.data()), num_rows,

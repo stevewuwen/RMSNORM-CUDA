@@ -2,6 +2,9 @@ import torch
 import argparse
 import os
 from itertools import product
+from unsloth.kernels.rms_layernorm import Fast_RMS_Layernorm
+from vllm import _custom_ops as ops
+
 
 HAS_TRITON = False
 try:
@@ -89,6 +92,42 @@ except ImportError:
     HAS_NANOBIND = False
     print("Warning: rmsnorm_cuda not found. Kernel 3 (Nanobind) will not be available.")
 
+def rms_norm_vllm(x: torch.Tensor, weight: torch.Tensor, eps: float = 1e-6):
+    """
+    x: [..., hidden_size] (CUDA tensor)
+    weight: [hidden_size] (CUDA tensor)
+    return: same shape as x
+    """
+    out = torch.empty_like(x)
+    # vLLM fused RMSNorm
+    ops.rms_norm(out, x, weight, eps)
+    return out
+
+def unsloth_rms_norm(x: torch.Tensor, weight: torch.Tensor, eps: float = 1e-5) -> torch.Tensor:
+    """
+    使用 Unsloth 的 Triton kernel 计算 RMS LayerNorm
+    
+    参数:
+        x (torch.Tensor): 输入张量，通常 shape 为 [batch_size, seq_len, hidden_dim]
+        weight (torch.Tensor): 缩放权重，通常 shape 为 [hidden_dim]
+        eps (float): 用于数值稳定的极小值
+        
+    返回:
+        y (torch.Tensor): 归一化后的输出张量
+    """
+    
+    # Fast_RMS_Layernorm 是一个 PyTorch Autograd Function
+    # 其 apply 方法的签名为: apply(X, W, eps, gemma)
+    # gemma 参数: 如果是 Gemma 架构的模型，设为 True (因为其权重有 +1 偏移)；
+    # 对于 Llama, Mistral, Qwen 等绝大多数模型，设为 False。
+    gemma = False 
+    
+    y = Fast_RMS_Layernorm.apply(x, weight, eps, gemma)
+    
+    return y
+
+
+
 def rms_norm_cuda_native_func(x, weight, eps=1e-6):
     if not HAS_NANOBIND:
         raise RuntimeError("rmsnorm_cuda not found")
@@ -105,14 +144,23 @@ def rms_norm_cuda_vec8_func(x, weight, eps=1e-6):
     rmsnorm_cuda.launch_rmsnorm(kernel_num, x, weight, y, eps, stream)
     return y
 
+def rms_norm_cuda_shared_memory_func(x, weight, eps=1e-6):
+    if not HAS_NANOBIND:
+        raise RuntimeError("rmsnorm_cuda not found")
+    y = torch.empty_like(x)
+    stream = torch.cuda.current_stream().cuda_stream
+    rmsnorm_cuda.launch_rmsnorm(kernel_num, x, weight, y, eps, stream)
+    return y
 KERNEL_MAPS = {
     0: ["PyTorch_Pure_Python", pytorch_native_rms_norm_func],
     1: ["PyTorch_Official", pytorch_official_rms_norm_func],
     2: ["PyTorch_Official_Compile", pytorch_official_compile_rms_norm_func],
     3: ["Triton_Custom", triton_rms_norm_func],
-    4: ["CUDA_Native", rms_norm_cuda_native_func],
-    5: ["CUDA_Vec8", rms_norm_cuda_vec8_func],
-    6: ["CUDA_Shared_Memory", rms_norm_cuda_shared_memory_func],
+    4: ['VLLM_Official', rms_norm_vllm],
+    5: ['unsloth_Attention', unsloth_rms_norm],
+    6: ["CUDA_Native", rms_norm_cuda_native_func],
+    7: ["CUDA_Vec8", rms_norm_cuda_vec8_func],
+    8: ["CUDA_Shared_Memory", rms_norm_cuda_shared_memory_func],
 }
 
 def verify_correctness(x, weight, tol=1e-3):
