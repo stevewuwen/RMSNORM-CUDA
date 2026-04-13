@@ -91,6 +91,7 @@ void launch_rmsnorm_py(int kernel_num, nb::ndarray<nb::device::cuda> input,
                                  static_cast<const half *>(weight.data()),
                                  static_cast<half *>(output.data()), num_rows,
                                  hidden_size, epsilon, (cudaStream_t)stream);
+    break;
   default:
     break;
   }

@@ -17,16 +17,13 @@ tags: [cuda, profiling, ncu, performance, optimization]
 ### 推荐: 一键完整采集
 
 ```bash
-# 使用 --set full 采集所有指标，并持久化保存
-ncu --set full \
+# 使用 --profile-from-start off 采集特定kernel的指标，并持久化保存
+ncu --profile-from-start off \
     -o <report_name> \
-    --target-processes all \
-    ./your_kernel
+    python benchmark.py <kernel_num>
 
 # 示例
-ncu --set full -o matmul_analysis --target-processes all ./matmul0_perf # 使用可执行程序
-ncu --set full -o matmul_analysis --target-processes all python benchmark.py 4 # 使用python来调用手写cuda库，在使用python时尽量不要使用全局分析，使用下面的局部分析
-ncu --profile-from-start off -o matmul_analysis -f python benchmark.py 4 # 只分析一定范围类的kernel
+ncu --profile-from-start off -o matmul_analysis -f python benchmark.py 4 # 使用ncu对benchmark.py里面的第4个kernel进行分析
 
 # 自动生成:
 # - matmul_analysis.ncu-rep    (NCU 报告文件)
@@ -62,7 +59,7 @@ ncu --import <file.ncu-rep> --print-summary per-kernel
 
 ```bash
 # 完整采集并持久化
-ncu --set full -o <report_name> --target-processes all ./kernel
+ncu --profile-from-start off -o <report_name> python benchmark.py <kernel_num>
 ```
 
 **情况 C: 用户提供了截图/文本**
@@ -166,7 +163,7 @@ def auto_diagnose(metrics):
 ### 建议的 NCU 命令
 ```bash
 # 优化后重新采集
-ncu --profile-from-start off -o {report_name}_optimized -f python benchmark.py 4
+ncu --profile-from-start off -o {report_name}_optimized -f python benchmark.py <kernel_num>
 ```
 
 ### 验证清单
@@ -181,16 +178,16 @@ ncu --profile-from-start off -o {report_name}_optimized -f python benchmark.py 4
 
 ## 🔧 工具使用说明
 
-### 完整采集 (推荐)
+### 采集
 
 ```bash
 # 采集指定kernel所有指标并保存
-ncu --profile-from-start off -o {report_name}_optimized -f python benchmark.py 4
+ncu --profile-from-start off -o {report_name}_optimized -f python benchmark.py <kernel_num>
 
 # 参数说明:
 # --profile-from-start off         # 采集指定范围的kernel情况
 # -o my_analysis      # 输出文件名 (生成 my_analysis.ncu-rep)
-# python benchmark.py 4 # 使用python启动benchmark.py, benchmark.py里面调用对应的kernel， 4表示调用第4个kernel。如果改变了src下面的kernel代码，记得先进入build目录下build，接着回到项目目录下面运行ncu。
+# python benchmark.py <kernel_num> # 使用python启动benchmark.py, benchmark.py里面调用对应的kernel， <kernel_num>表示调用第几个kernel。如果改变了src下面的kernel代码，记得先进入build目录下build，接着回到项目目录下面运行ncu。
 ```
 
 ### 增量分析 (已有报告)
@@ -300,17 +297,8 @@ IF occupancy < 30% AND sm_busy > 70%:
 ### 推荐采集命令
 
 ```bash
-# 完整采集
-ncu --set full -o report_name --target-processes all ./kernel
-
-# 指定采集部分kernel（推荐）
-ncu --profile-from-start off -o matmul_analysis -f python benchmark.py kernel_num
-
-# 指定 sections
-ncu --section SpeedOfLight,Occupancy,LaunchStats -o report_name ./kernel
-
-# 特定指标
-ncu --metrics sm__throughput.avg.pct,dram__throughput.avg.pct -o report_name ./kernel
+# 指定采集部分kernel
+ncu --profile-from-start off -o matmul_analysis -f python benchmark.py <kernel_num>
 ```
 
 ### 报告操作

@@ -128,7 +128,7 @@ def unsloth_rms_norm(x: torch.Tensor, weight: torch.Tensor, eps: float = 1e-5) -
 
 
 
-def rms_norm_cuda_native_func(x, weight, eps=1e-6):
+def rms_norm_cuda(x, weight, eps=1e-6):
     if not HAS_NANOBIND:
         raise RuntimeError("rmsnorm_cuda not found")
     y = torch.empty_like(x)
@@ -136,21 +136,6 @@ def rms_norm_cuda_native_func(x, weight, eps=1e-6):
     rmsnorm_cuda.launch_rmsnorm(kernel_num, x, weight, y, eps, stream)
     return y
 
-def rms_norm_cuda_vec8_func(x, weight, eps=1e-6):
-    if not HAS_NANOBIND:
-        raise RuntimeError("rmsnorm_cuda not found")
-    y = torch.empty_like(x)
-    stream = torch.cuda.current_stream().cuda_stream
-    rmsnorm_cuda.launch_rmsnorm(kernel_num, x, weight, y, eps, stream)
-    return y
-
-def rms_norm_cuda_shared_memory_func(x, weight, eps=1e-6):
-    if not HAS_NANOBIND:
-        raise RuntimeError("rmsnorm_cuda not found")
-    y = torch.empty_like(x)
-    stream = torch.cuda.current_stream().cuda_stream
-    rmsnorm_cuda.launch_rmsnorm(kernel_num, x, weight, y, eps, stream)
-    return y
 KERNEL_MAPS = {
     0: ["PyTorch_Pure_Python", pytorch_native_rms_norm_func],
     1: ["PyTorch_Official", pytorch_official_rms_norm_func],
@@ -158,9 +143,9 @@ KERNEL_MAPS = {
     3: ["Triton_Custom", triton_rms_norm_func],
     4: ['VLLM_Official', rms_norm_vllm],
     5: ['unsloth_Attention', unsloth_rms_norm],
-    6: ["CUDA_Native", rms_norm_cuda_native_func],
-    7: ["CUDA_Vec8", rms_norm_cuda_vec8_func],
-    8: ["CUDA_Shared_Memory", rms_norm_cuda_shared_memory_func],
+    6: ["CUDA_Native", rms_norm_cuda],
+    7: ["CUDA_Vec8", rms_norm_cuda],
+    8: ["CUDA_Shared_Memory", rms_norm_cuda],
 }
 
 def verify_correctness(x, weight, tol=1e-3):
