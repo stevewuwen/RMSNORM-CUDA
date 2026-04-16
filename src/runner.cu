@@ -64,6 +64,23 @@ void launch_rmsnorm_shared_memory(const half *d_input, const half *d_weight,
   CHECK_CUDA(cudaGetLastError());
 }
 
+void launch_add_rmsnorm(const half *d_input, half *residual,
+                        const half *d_weight, half *d_output, int num_rows,
+                        int hidden_size, float epsilon,
+                        cudaStream_t stream = 0) {
+  // 每个 Token (Row) 分配一个 Block
+  dim3 grid(num_rows);
+  // 试试 1024
+  int block_size = 1024;
+  dim3 block(block_size);
+
+  int shared_mem_size = hidden_size * sizeof(half);
+
+  add_rms_norm_kernel_shared_memory<<<grid, block, shared_mem_size, stream>>>(
+      d_input, residual, d_weight, d_output, hidden_size, epsilon);
+  CHECK_CUDA(cudaGetLastError());
+}
+
 void launch_rmsnorm_py(int kernel_num, nb::ndarray<nb::device::cuda> input,
                        nb::ndarray<nb::device::cuda> weight,
                        nb::ndarray<nb::device::cuda> output, float epsilon,
@@ -97,8 +114,35 @@ void launch_rmsnorm_py(int kernel_num, nb::ndarray<nb::device::cuda> input,
   }
 }
 
+void launch_add_rmsnorm_py(int kernel_num, nb::ndarray<nb::device::cuda> input,
+                           nb::ndarray<nb::device::cuda> residual,
+                           nb::ndarray<nb::device::cuda> weight,
+                           nb::ndarray<nb::device::cuda> output, float epsilon,
+                           uintptr_t stream = 0) {
+  int num_rows = 1;
+  for (size_t i = 0; i < input.ndim() - 1; ++i) {
+    num_rows *= input.shape(i);
+  }
+  int hidden_size = input.shape(input.ndim() - 1);
+  switch (kernel_num) {
+  case 1:
+    launch_add_rmsnorm(static_cast<const half *>(input.data()),
+                       static_cast<half *>(residual.data()),
+                       static_cast<const half *>(weight.data()),
+                       static_cast<half *>(output.data()), num_rows,
+                       hidden_size, epsilon, (cudaStream_t)stream);
+    break;
+  default:
+    break;
+  }
+}
+
 NB_MODULE(rmsnorm_cuda, m) {
   m.def("launch_rmsnorm", &launch_rmsnorm_py, "Launch RMSNorm CUDA kernel",
         nb::arg("kernel_num"), nb::arg("input"), nb::arg("weight"),
+        nb::arg("output"), nb::arg("epsilon") = 1e-6, nb::arg("stream") = 0);
+  m.def("launch_add_rmsnorm", &launch_add_rmsnorm_py,
+        "Launch ADD RMSNorm CUDA kernel", nb::arg("kernel_num"),
+        nb::arg("input"), nb::arg("residual"), nb::arg("weight"),
         nb::arg("output"), nb::arg("epsilon") = 1e-6, nb::arg("stream") = 0);
 }

@@ -4,7 +4,14 @@ import os
 from itertools import product
 from unsloth.kernels.rms_layernorm import Fast_RMS_Layernorm
 from vllm import _custom_ops as ops
-
+import sys
+sys.path.append('build')
+try:
+    import rmsnorm_cuda
+    HAS_NANOBIND = True
+except ImportError:
+    HAS_NANOBIND = False
+    print("Warning: rmsnorm_cuda not found. Kernel 3 (Nanobind) will not be available.")
 
 HAS_TRITON = False
 try:
@@ -14,24 +21,24 @@ try:
 except ImportError:
     print("Warning: Triton module not found. Kernel 2 (Triton) will not be available.")
 kernel_num = 0
-# Kernel 0: 纯 Python API 实现 (以此作为正确性验证的基准 Gold Standard)
+# Kernel 0: 纯python实现
 def pytorch_native_rms_norm_func(x, weight, eps=1e-6):
-    # 输入形状: x: (..., hidden_size), weight: (hidden_size,)
-    # 注意：计算 variance 时最好转为 fp32 防止溢出
+    # x: (..., hidden_size), weight: (hidden_size,)
     variance = x.to(torch.float32).pow(2).mean(-1, keepdim=True)
     hidden_states = x * torch.rsqrt(variance + eps).to(x.dtype)
     return weight * hidden_states
 
 rms_norm = torch.nn.functional.rms_norm
 fast_rms_norm = torch.compile(rms_norm)
-# Kernel 1: PyTorch 官方实现 (PyTorch >= 2.4 引入了底层的 RMSNorm)
+# Kernel 1: pytorch官方实现
 def pytorch_official_rms_norm_func(x, weight, eps=1e-6):
     return rms_norm(x, (x.size(-1),), weight, eps)
 
+#kernel 2： 编译后的pytorch
 def pytorch_official_compile_rms_norm_func(x, weight, eps=1e-6):
     return fast_rms_norm(x, (x.size(-1),), weight, eps)
 
-# Kernel 2: Triton 实现
+# Kernel 3: Triton 实现
 if HAS_TRITON:
     @triton.jit
     def triton_rms_norm_fwd_kernel(
@@ -40,37 +47,23 @@ if HAS_TRITON:
         N, eps,
         BLOCK_SIZE: tl.constexpr
     ):
-        # 1D Grid，按照行 (batch * seqlen) 来并行
         row_idx = tl.program_id(0)
         X_ptr = X_ptr + row_idx * stride_x_row
         Y_ptr = Y_ptr + row_idx * stride_y_row
-
         cols = tl.arange(0, BLOCK_SIZE)
         mask = cols < N
-
-        # 加载数据，为了精度，内部计算使用 fp32
         x = tl.load(X_ptr + cols, mask=mask, other=0.0).to(tl.float32)
         w = tl.load(W_ptr + cols, mask=mask, other=0.0).to(tl.float32)
-
-        # 计算 RMSNorm
         var = tl.sum(x * x, axis=0) / N
         rstd = tl.math.rsqrt(var + eps)
-        
         y = x * rstd * w
-        
-        # 将结果转回原始数据类型并存储
         tl.store(Y_ptr + cols, y.to(X_ptr.dtype.element_ty), mask=mask)
 
     def triton_rms_norm_func(x, weight, eps=1e-6):
-        # 将前两维铺平，统一为 2D 形状处理
         x_2d = x.view(-1, x.shape[-1])
         M, N = x_2d.shape
         y = torch.empty_like(x_2d)
-
-        # Triton block 必须是 2 的幂
         BLOCK_SIZE = triton.next_power_of_2(N)
-        
-        # 启动 Kernel
         grid = (M,)
         triton_rms_norm_fwd_kernel[grid](
             x_2d, y, weight,
@@ -83,15 +76,6 @@ else:
     def triton_rms_norm_func(x, weight, eps=1e-6):
         raise RuntimeError("Triton is not installed.")
 
-import sys
-sys.path.append('build')
-try:
-    import rmsnorm_cuda
-    HAS_NANOBIND = True
-except ImportError:
-    HAS_NANOBIND = False
-    print("Warning: rmsnorm_cuda not found. Kernel 3 (Nanobind) will not be available.")
-
 def rms_norm_vllm(x: torch.Tensor, weight: torch.Tensor, eps: float = 1e-6):
     """
     x: [..., hidden_size] (CUDA tensor)
@@ -99,31 +83,12 @@ def rms_norm_vllm(x: torch.Tensor, weight: torch.Tensor, eps: float = 1e-6):
     return: same shape as x
     """
     out = torch.empty_like(x)
-    # vLLM fused RMSNorm
     ops.rms_norm(out, x, weight, eps)
     return out
 
 def unsloth_rms_norm(x: torch.Tensor, weight: torch.Tensor, eps: float = 1e-5) -> torch.Tensor:
-    """
-    使用 Unsloth 的 Triton kernel 计算 RMS LayerNorm
-    
-    参数:
-        x (torch.Tensor): 输入张量，通常 shape 为 [batch_size, seq_len, hidden_dim]
-        weight (torch.Tensor): 缩放权重，通常 shape 为 [hidden_dim]
-        eps (float): 用于数值稳定的极小值
-        
-    返回:
-        y (torch.Tensor): 归一化后的输出张量
-    """
-    
-    # Fast_RMS_Layernorm 是一个 PyTorch Autograd Function
-    # 其 apply 方法的签名为: apply(X, W, eps, gemma)
-    # gemma 参数: 如果是 Gemma 架构的模型，设为 True (因为其权重有 +1 偏移)；
-    # 对于 Llama, Mistral, Qwen 等绝大多数模型，设为 False。
     gemma = False 
-    
     y = Fast_RMS_Layernorm.apply(x, weight, eps, gemma)
-    
     return y
 
 
