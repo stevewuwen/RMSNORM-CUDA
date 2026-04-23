@@ -7,3 +7,6 @@ benchmark_results
 benchmark_results.png
 **/*.ncu-rep
 unsloth_compiled_cache
+.opencode
+.claude
+.ruff_cache
