@@ -61,7 +61,20 @@ void launch_rmsnorm_shared_memory(const half *d_input, const half *d_weight,
 
   rms_norm_kernel_shared_memory<<<grid, block, shared_mem_size, stream>>>(
       d_input, d_weight, d_output, hidden_size, epsilon);
-  CHECK_CUDA(cudaGetLastError());
+  // CHECK_CUDA(cudaGetLastError());
+}
+
+void launch_rmsnorm_ilp(const half *d_input, const half *d_weight,
+                        half *d_output, int num_rows, int hidden_size,
+                        float epsilon, cudaStream_t stream = 0) {
+  // 严格启动 1024 线程
+  dim3 block(1024);
+  // 每个 Token (行) 分配 1 个 Block
+  dim3 grid(num_rows);
+
+  rms_norm_kernel_true_vllm<<<grid, block, 0, stream>>>(d_input, d_weight,
+                                                        d_output, 1e-5f);
+  // CHECK_CUDA(cudaGetLastError());
 }
 
 void launch_add_rmsnorm(const half *d_input, half *residual,
@@ -91,23 +104,29 @@ void launch_rmsnorm_py(int kernel_num, nb::ndarray<nb::device::cuda> input,
   }
   int hidden_size = input.shape(input.ndim() - 1);
   switch (kernel_num) {
-  case 6:
+  case 3:
     launch_rmsnorm_native(static_cast<const half *>(input.data()),
                           static_cast<const half *>(weight.data()),
                           static_cast<half *>(output.data()), num_rows,
                           hidden_size, epsilon, (cudaStream_t)stream);
     break;
-  case 7:
+  case 4:
     launch_rmsnorm_vec8(static_cast<const half *>(input.data()),
                         static_cast<const half *>(weight.data()),
                         static_cast<half *>(output.data()), num_rows,
                         hidden_size, epsilon, (cudaStream_t)stream);
     break;
-  case 8:
+  case 5:
     launch_rmsnorm_shared_memory(static_cast<const half *>(input.data()),
                                  static_cast<const half *>(weight.data()),
                                  static_cast<half *>(output.data()), num_rows,
                                  hidden_size, epsilon, (cudaStream_t)stream);
+    break;
+  case 6:
+    launch_rmsnorm_ilp(static_cast<const half *>(input.data()),
+                       static_cast<const half *>(weight.data()),
+                       static_cast<half *>(output.data()), num_rows,
+                       hidden_size, epsilon, (cudaStream_t)stream);
     break;
   default:
     break;
