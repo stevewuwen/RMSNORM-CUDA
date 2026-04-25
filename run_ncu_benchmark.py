@@ -75,7 +75,7 @@ def main():
     os.makedirs("benchmark_results", exist_ok=True)
     
     # 循环遍历 kernel_id 0 到 8
-    for kernel_id in range(7):
+    for kernel_id in range(8):
         print(f"[{kernel_id}/6] Profiling kernel {kernel_id}...")
         
         # 构建执行命令

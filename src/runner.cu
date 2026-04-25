@@ -72,8 +72,21 @@ void launch_rmsnorm_ilp(const half *d_input, const half *d_weight,
   // 每个 Token (行) 分配 1 个 Block
   dim3 grid(num_rows);
 
-  rms_norm_kernel_true_vllm<<<grid, block, 0, stream>>>(d_input, d_weight,
-                                                        d_output, 1e-5f);
+  rms_norm_kernel_pack64<<<grid, block, 0, stream>>>(d_input, d_weight,
+                                                     d_output, 1e-5f);
+  // CHECK_CUDA(cudaGetLastError());
+}
+
+void launch_rmsnorm_pack128(const half *d_input, const half *d_weight,
+                            half *d_output, int num_rows, int hidden_size,
+                            float epsilon, cudaStream_t stream = 0) {
+  // 严格启动 1024 线程
+  dim3 block(256);
+  // 每个 Token (行) 分配 1 个 Block
+  dim3 grid(num_rows);
+
+  rms_norm_kernel_pack128<256><<<grid, block, 0, stream>>>(
+      d_input, d_weight, d_output, hidden_size, 1e-5f);
   // CHECK_CUDA(cudaGetLastError());
 }
 
@@ -83,15 +96,13 @@ void launch_add_rmsnorm(const half *d_input, half *residual,
                         cudaStream_t stream = 0) {
   // 每个 Token (Row) 分配一个 Block
   dim3 grid(num_rows);
-  // 试试 1024
-  int block_size = 1024;
+  // 试试 256
+  int block_size = 256;
   dim3 block(block_size);
 
-  int shared_mem_size = hidden_size * sizeof(half);
-
-  add_rms_norm_kernel_shared_memory<<<grid, block, shared_mem_size, stream>>>(
+  add_rms_norm_kernel_optimized<<<grid, block, 0>>>(
       d_input, residual, d_weight, d_output, hidden_size, epsilon);
-  CHECK_CUDA(cudaGetLastError());
+  // CHECK_CUDA(cudaGetLastError());
 }
 
 void launch_rmsnorm_py(int kernel_num, nb::ndarray<nb::device::cuda> input,
@@ -127,6 +138,12 @@ void launch_rmsnorm_py(int kernel_num, nb::ndarray<nb::device::cuda> input,
                        static_cast<const half *>(weight.data()),
                        static_cast<half *>(output.data()), num_rows,
                        hidden_size, epsilon, (cudaStream_t)stream);
+    break;
+  case 7:
+    launch_rmsnorm_pack128(static_cast<const half *>(input.data()),
+                           static_cast<const half *>(weight.data()),
+                           static_cast<half *>(output.data()), num_rows,
+                           hidden_size, epsilon, (cudaStream_t)stream);
     break;
   default:
     break;

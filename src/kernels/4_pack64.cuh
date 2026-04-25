@@ -8,9 +8,6 @@ struct __align__(8) Pack64 {
 
 #include "common.cuh"
 
-// ==========================================================
-// 针对 1024 线程 (32个Warp) 量身定制的 Block 规约
-// ==========================================================
 __inline__ __device__ float blockReduceSum_1024(float val) {
   // 32 个 Warp，刚好需要 32 个 float 的 Shared Memory
   static __shared__ float shared[32];
@@ -38,11 +35,11 @@ __inline__ __device__ float blockReduceSum_1024(float val) {
 // 终极对齐 vLLM 的 RMSNorm
 // HIDDEN_SIZE = 4096, 每个线程处理 4 个 half
 // ==========================================================
-__global__ void __launch_bounds__(1024) rms_norm_kernel_true_vllm(
-    const half *__restrict__ input,  // [batch_size, 4096]
-    const half *__restrict__ weight, // [4096]
-    half *__restrict__ output,       // [batch_size, 4096]
-    float epsilon) {
+__global__ void __launch_bounds__(1024)
+    rms_norm_kernel_pack64(const half *__restrict__ input, // [batch_size, 4096]
+                           const half *__restrict__ weight, // [4096]
+                           half *__restrict__ output, // [batch_size, 4096]
+                           float epsilon) {
   // 每个线程负责 4 个 half (对应 1 个 Pack64 / float2)
   // 1024 threads * 4 = 4096 elements
   int tid = threadIdx.x;

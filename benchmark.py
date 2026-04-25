@@ -114,8 +114,8 @@ def rms_norm_cuda(x, weight, eps=1e-6):
     return y
 
 KERNEL_MAPS = {
-    7: ["PyTorch_Pure_Python", pytorch_native_rms_norm_func],
-    8: ["PyTorch_Official", pytorch_official_rms_norm_func],
+    8: ["PyTorch_Pure_Python", pytorch_native_rms_norm_func],
+    9: ["PyTorch_Official", pytorch_official_rms_norm_func],
     0: ["PyTorch_Official_Compile", pytorch_official_compile_rms_norm_func],
     1: ["Triton_Custom", triton_rms_norm_func],
     2: ['VLLM_Official', rms_norm_vllm],
@@ -123,6 +123,7 @@ KERNEL_MAPS = {
     4: ["CUDA_Vec8", rms_norm_cuda],
     5: ["CUDA_Shared_Memory", rms_norm_cuda],
     6: ["CUDA_ILP", rms_norm_cuda],
+    7: ["CUDA_Pack128", rms_norm_cuda],
 }
 
 def verify_correctness(x, weight, tol=1e-3):
