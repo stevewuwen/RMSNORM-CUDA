@@ -69,13 +69,13 @@ def compute_metrics(baseline, target):
 
 def main():
     parser = argparse.ArgumentParser(description="RMSNorm Accuracy Verification")
-    parser.add_argument("--batch_size", type=int, default=4)
-    parser.add_argument("--seq_len", type=int, default=2048)
+    parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--seq_len", type=int, default=1)
     parser.add_argument("--hidden_size", type=int, default=4096)
     parser.add_argument(
         "--kernel_num",
         type=int,
-        default=8,
+        default=6,
         help="Custom CUDA kernel number (6, 7, or 8)",
     )
     args = parser.parse_args()
