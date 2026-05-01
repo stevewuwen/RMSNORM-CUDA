@@ -91,11 +91,10 @@ if __name__ == "__main__":
     assert results_dir.is_dir(), "Benchmark results directory not found!"
 
     data = []
-    for filename in results_dir.glob("*_kernel.txt"):
+    for filename in results_dir.glob("*.txt"):
         stem_parts = filename.stem.split("_")
         if not stem_parts[0].isdigit():
             continue
-            
         kernel_nr = int(stem_parts[0])
         results_dict = parse_file(filename)
         

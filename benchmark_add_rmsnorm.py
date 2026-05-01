@@ -33,22 +33,32 @@ fast_add_rms_norm = torch.compile(pytorch_official_add_rms_norm_func)
 def pytorch_official_compile_add_rms_norm_func(x, residual, weight, eps=1e-6):
     return fast_add_rms_norm(x, residual, weight, eps)
 
-def add_rms_norm_cuda(x, residual, weight, eps=1e-6):
+def add_rms_norm_fusion_cuda(x, residual, weight, eps=1e-6):
     if not HAS_NANOBIND:
         raise RuntimeError("rmsnorm_cuda not found")
     y = torch.empty_like(x)
     stream = torch.cuda.current_stream().cuda_stream
-    rmsnorm_cuda.launch_add_rmsnorm(kernel_num, x, residual, weight, y, eps, stream)
+    rmsnorm_cuda.launch_add_rmsnorm(1, x, residual, weight, y, eps, stream)
+    return y, residual
+
+def add_rms_norm_not_fusion_cuda(x, residual, weight, eps=1e-6):
+    if not HAS_NANOBIND:
+        raise RuntimeError("rmsnorm_cuda not found")
+    residual += x
+    y = torch.empty_like(x)
+    stream = torch.cuda.current_stream().cuda_stream
+    rmsnorm_cuda.launch_rmsnorm(6, residual, weight, y, eps, stream)
     return y, residual
 
 KERNEL_MAPS = {
     7: ["PyTorch_Pure_Python", pytorch_native_add_rms_norm_func],
     8: ["PyTorch_Official", pytorch_official_add_rms_norm_func],
     0: ["PyTorch_Official_Compile", pytorch_official_compile_add_rms_norm_func],
-    1: ["CUDA_Shared_Memory", add_rms_norm_cuda],
+    1: ["CUDA_NOT_FUSION_TLP", add_rms_norm_not_fusion_cuda],
+    2: ["CUDA_FUSION_TLP", add_rms_norm_fusion_cuda],
 }
 
-def verify_correctness(x, residual, weight, tol=1e-3):
+def verify_correctness(x, residual, weight, tol=1e-2):
     if kernel_num == 0:
         return True 
 

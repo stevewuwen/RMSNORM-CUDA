@@ -155,7 +155,7 @@ def benchmark():
     global kernel_num
     batch_size_l = [1, 2, 4, 8, 16, 32, 64, 128]
     seq_length_l = [1]
-    hidden_size_l = [7168] 
+    hidden_size_l = [4096] 
     
     device = torch.device("cuda:0")
     dtype = torch.float16

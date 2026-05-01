@@ -64,7 +64,7 @@ void launch_rmsnorm_shared_memory(const half *d_input, const half *d_weight,
   // CHECK_CUDA(cudaGetLastError());
 }
 
-void launch_rmsnorm_ilp(const half *d_input, const half *d_weight,
+void launch_rmsnorm_tlp(const half *d_input, const half *d_weight,
                         half *d_output, int num_rows, int hidden_size,
                         float epsilon, cudaStream_t stream = 0) {
   // 严格启动 1024 线程
@@ -134,7 +134,7 @@ void launch_rmsnorm_py(int kernel_num, nb::ndarray<nb::device::cuda> input,
                                  hidden_size, epsilon, (cudaStream_t)stream);
     break;
   case 6:
-    launch_rmsnorm_ilp(static_cast<const half *>(input.data()),
+    launch_rmsnorm_tlp(static_cast<const half *>(input.data()),
                        static_cast<const half *>(weight.data()),
                        static_cast<half *>(output.data()), num_rows,
                        hidden_size, epsilon, (cudaStream_t)stream);
