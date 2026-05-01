@@ -122,9 +122,8 @@ KERNEL_MAPS = {
     3: ["CUDA_Native", rms_norm_cuda],
     4: ["CUDA_Vec8", rms_norm_cuda],
     5: ["CUDA_Shared_Memory", rms_norm_cuda],
-    6: ["CUDA_TLP", rms_norm_cuda],
+    6: ["CUDA_ILP", rms_norm_cuda],
     7: ["CUDA_Pack128", rms_norm_cuda],
-    10: ["CUDA_Pack128_NOT_4096", rms_norm_cuda],
 }
 
 def verify_correctness(x, weight, tol=1e-3):
@@ -152,8 +151,7 @@ def verify_correctness(x, weight, tol=1e-3):
     return True
 
 def benchmark():
-    global kernel_num
-    batch_size_l = [1, 2, 4, 8, 16, 32, 64, 128]
+    batch_size_l = [pow(2, x) for x in range(7, 16)]
     seq_length_l = [1]
     hidden_size_l = [4096] 
     
@@ -165,9 +163,6 @@ def benchmark():
     print("-" * 80)
 
     for batch_size, seqlen, hidden_size in product(batch_size_l, seq_length_l, hidden_size_l):
-        # if kernel_num==10:
-        #     hidden_size = 7168
-        #     kernel_num = 5
         x = torch.randn(batch_size, seqlen, hidden_size, device=device, dtype=dtype)
         weight = torch.ones(hidden_size, device=device, dtype=dtype)
 

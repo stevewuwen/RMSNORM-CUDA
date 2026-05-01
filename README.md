@@ -34,3 +34,5 @@ ncu --profile-from-start off -o my_profile_report     -f     python benchmark.py
 -f: 强制覆盖已有的报告文件。
 
 可以在指定网站查看对应的ncu-rep文件的分析：
+
+<!-- benchmark_results -->
