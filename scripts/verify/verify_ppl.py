@@ -6,11 +6,6 @@ from datasets import load_dataset
 import torch.nn as nn
 from build import rmsnorm_cuda
 
-# =====================================================================
-# TODO 1: 导入你编译好的自定义 CUDA RMSNorm 扩展
-# 例如: import my_cuda_extension
-# =====================================================================
-
 class CustomTLPRMSNorm(nn.Module):
     """
     用来替换 Qwen 官方 RMSNorm 的自定义 Wrapper 层

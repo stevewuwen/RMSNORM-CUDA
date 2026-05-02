@@ -10,3 +10,4 @@ unsloth_compiled_cache
 .opencode
 .claude
 .ruff_cache
+.venv
