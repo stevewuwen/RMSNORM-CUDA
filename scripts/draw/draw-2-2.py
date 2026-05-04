@@ -317,4 +317,4 @@ plt.text(
 )
 
 plt.tight_layout()
-plt.savefig("图2-2.png", bbox_inches="tight", dpi=600)
+plt.savefig("assets/图2-2.pdf", bbox_inches="tight")

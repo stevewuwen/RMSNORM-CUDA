@@ -245,5 +245,5 @@ draw_arrow(new_block2_x - 0.4, Y_COMPUTE, new_block2_x - 0.4, Y_CACHE_TRACK + 0.
 
 # ==================== 6. 渲染出图 ====================
 plt.tight_layout()
-plt.savefig("图2-1.png", dpi=600, bbox_inches="tight")
+plt.savefig("图2-1.pdf", bbox_inches="tight")
 # plt.show()

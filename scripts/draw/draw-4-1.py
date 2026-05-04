@@ -221,4 +221,4 @@ plt.text(
 
 # 调整布局并保存
 plt.tight_layout()
-plt.savefig("图4-1.png", dpi=600, bbox_inches="tight")
+plt.savefig("assets/图4-1.pdf", bbox_inches="tight")
