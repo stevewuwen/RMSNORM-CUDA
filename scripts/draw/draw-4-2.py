@@ -343,4 +343,4 @@ plt.figtext(
 )
 
 # plt.show()
-plt.savefig("图4-2", dpi=600, bbox_inches="tight")
+plt.savefig("assets/图4-2.pdf", bbox_inches="tight")
