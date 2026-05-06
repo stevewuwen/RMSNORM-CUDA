@@ -306,15 +306,15 @@ draw_straight_arrow(ax, 12.7, 2.5, 13.4, 2.5)
 
 
 # ================= 4. 标题与收尾 =================
-plt.text(
-    7.5,
-    9.0,
-    "图 2-2 原生 RMSNorm 计算流程图",
-    fontsize=26,  # 【优化】主标题从 20 调大到 26
-    fontweight="900",
-    color="#1E293B",
-    ha="center",
-)
+# plt.text(
+#     7.5,
+#     9.0,
+#     "图 2-2 原生 RMSNorm 计算流程图",
+#     fontsize=26,  # 【优化】主标题从 20 调大到 26
+#     fontweight="900",
+#     color="#1E293B",
+#     ha="center",
+# )
 
 plt.tight_layout()
 plt.savefig("assets/图2-2.pdf", bbox_inches="tight")
