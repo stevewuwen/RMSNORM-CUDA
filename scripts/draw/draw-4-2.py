@@ -333,14 +333,14 @@ ax.annotate(
 )
 
 # 添加图标题
-plt.figtext(
-    0.5,
-    0.02,
-    "图4-2 Shared Memory数据复用与 32线程 Warp 级无锁蝶形规约示意图",
-    fontsize=16,
-    fontweight="bold",
-    ha="center",
-)
+# plt.figtext(
+#     0.5,
+#     0.02,
+#     "图4-2 Shared Memory数据复用与 32线程 Warp 级无锁蝶形规约示意图",
+#     fontsize=16,
+#     fontweight="bold",
+#     ha="center",
+# )
 
 # plt.show()
 plt.savefig("assets/图4-2.pdf", bbox_inches="tight")

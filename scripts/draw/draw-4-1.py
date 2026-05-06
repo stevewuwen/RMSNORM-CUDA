@@ -208,16 +208,16 @@ draw_row(
 )
 
 # ==================== 标题区域 ====================
-plt.text(
-    75,
-    113,
-    "图 4-1  16-bit 标量访存与 64/128-bit 并发向量化访存综合对比图",
-    ha="center",
-    va="center",
-    fontsize=16,
-    fontweight="bold",
-    color="black",
-)
+# plt.text(
+#     75,
+#     113,
+#     "图 4-1  16-bit 标量访存与 64/128-bit 并发向量化访存综合对比图",
+#     ha="center",
+#     va="center",
+#     fontsize=16,
+#     fontweight="bold",
+#     color="black",
+# )
 
 # 调整布局并保存
 plt.tight_layout()

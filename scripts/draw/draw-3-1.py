@@ -36,12 +36,12 @@ ax.set_ylim(y_min, y_max)
 
 ax.set_xlabel("算术强度 (FLOPs/Byte)", fontsize=12, fontweight="bold")
 ax.set_ylabel("性能 (TFLOPS)", fontsize=12, fontweight="bold")
-ax.set_title(
-    "基于 NVIDIA A40 GPU 的 RMSNorm 算子 Roofline 性能分析",
-    fontsize=15,
-    pad=15,
-    fontweight="bold",
-)
+# ax.set_title(
+#     "基于 NVIDIA A40 GPU 的 RMSNorm 算子 Roofline 性能分析",
+#     fontsize=15,
+#     pad=15,
+#     fontweight="bold",
+# )
 ax.grid(True, which="both", ls="--", alpha=0.3)
 
 # ==========================================

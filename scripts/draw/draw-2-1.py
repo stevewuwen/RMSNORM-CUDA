@@ -4,7 +4,7 @@ import matplotlib.patches as patches
 # ==================== 1. 初始化与样式配置 ====================
 # 设置全局字体和背景色
 plt.rcParams["font.sans-serif"] = ["WenQuanYi Micro Hei"]
-fig, ax = plt.subplots(figsize=(16, 6.5), dpi=300)
+fig, ax = plt.subplots(figsize=(16, 6.5), dpi=600)
 ax.set_facecolor("#F8F9FA")
 ax.set_xlim(0, 24)
 ax.set_ylim(-1.5, 8.5)
