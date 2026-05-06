@@ -100,7 +100,35 @@ void launch_add_rmsnorm(const half *d_input, half *residual,
   int block_size = 256;
   dim3 block(block_size);
 
-  add_rms_norm_kernel_optimized<<<grid, block, 0>>>(
+  add_rms_norm_kernel_optimized<256><<<grid, block, 0>>>(
+      d_input, residual, d_weight, d_output, hidden_size, epsilon);
+  // CHECK_CUDA(cudaGetLastError());
+}
+
+void launch_add_rmsnorm_512(const half *d_input, half *residual,
+                            const half *d_weight, half *d_output, int num_rows,
+                            int hidden_size, float epsilon,
+                            cudaStream_t stream = 0) {
+  // 每个 Token (Row) 分配一个 Block
+  dim3 grid(num_rows);
+  int block_size = 512;
+  dim3 block(block_size);
+
+  add_rms_norm_kernel_optimized<512><<<grid, block, 0>>>(
+      d_input, residual, d_weight, d_output, hidden_size, epsilon);
+  // CHECK_CUDA(cudaGetLastError());
+}
+
+void launch_add_rmsnorm_pack64(const half *d_input, half *residual,
+                               const half *d_weight, half *d_output,
+                               int num_rows, int hidden_size, float epsilon,
+                               cudaStream_t stream = 0) {
+  // 每个 Token (Row) 分配一个 Block
+  dim3 grid(num_rows);
+  int block_size = 1024;
+  dim3 block(block_size);
+
+  add_rms_norm_kernel_optimized_pack64<1024><<<grid, block, 0>>>(
       d_input, residual, d_weight, d_output, hidden_size, epsilon);
   // CHECK_CUDA(cudaGetLastError());
 }
@@ -167,6 +195,20 @@ void launch_add_rmsnorm_py(int kernel_num, nb::ndarray<nb::device::cuda> input,
                        static_cast<const half *>(weight.data()),
                        static_cast<half *>(output.data()), num_rows,
                        hidden_size, epsilon, (cudaStream_t)stream);
+    break;
+  case 2:
+    launch_add_rmsnorm_512(static_cast<const half *>(input.data()),
+                           static_cast<half *>(residual.data()),
+                           static_cast<const half *>(weight.data()),
+                           static_cast<half *>(output.data()), num_rows,
+                           hidden_size, epsilon, (cudaStream_t)stream);
+    break;
+  case 3:
+    launch_add_rmsnorm_pack64(static_cast<const half *>(input.data()),
+                              static_cast<half *>(residual.data()),
+                              static_cast<const half *>(weight.data()),
+                              static_cast<half *>(output.data()), num_rows,
+                              hidden_size, epsilon, (cudaStream_t)stream);
     break;
   default:
     break;

@@ -130,7 +130,7 @@ def parse_and_calculate(output_text, kernel_id):
 def main():
     os.makedirs("benchmark_results", exist_ok=True)
 
-    total_kernels = 3
+    total_kernels = 5
 
     for kernel_id in range(total_kernels):
         print(f"[{kernel_id + 1}/{total_kernels}] Profiling kernel {kernel_id}...")
@@ -141,7 +141,7 @@ def main():
             "--metrics",
             "gpu__time_duration.sum,dram__bytes_read.sum,dram__bytes_write.sum",
             "python",
-            "benchmark_add_rmsnorm.py",
+            "scripts/benchmark/benchmark_add_rmsnorm.py",
             str(kernel_id)
         ]
 

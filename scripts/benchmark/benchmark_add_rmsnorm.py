@@ -41,6 +41,22 @@ def add_rms_norm_fusion_cuda(x, residual, weight, eps=1e-6):
     rmsnorm_cuda.launch_add_rmsnorm(1, x, residual, weight, y, eps, stream)
     return y, residual
 
+def add_rms_norm_fusion_cuda_512(x, residual, weight, eps=1e-6):
+    if not HAS_NANOBIND:
+        raise RuntimeError("rmsnorm_cuda not found")
+    y = torch.empty_like(x)
+    stream = torch.cuda.current_stream().cuda_stream
+    rmsnorm_cuda.launch_add_rmsnorm(2, x, residual, weight, y, eps, stream)
+    return y, residual
+
+def add_rms_norm_fusion_cuda_pack64(x, residual, weight, eps=1e-6):
+    if not HAS_NANOBIND:
+        raise RuntimeError("rmsnorm_cuda not found")
+    y = torch.empty_like(x)
+    stream = torch.cuda.current_stream().cuda_stream
+    rmsnorm_cuda.launch_add_rmsnorm(3, x, residual, weight, y, eps, stream)
+    return y, residual
+
 def add_rms_norm_not_fusion_cuda(x, residual, weight, eps=1e-6):
     if not HAS_NANOBIND:
         raise RuntimeError("rmsnorm_cuda not found")
@@ -56,6 +72,8 @@ KERNEL_MAPS = {
     0: ["PyTorch_Official_Compile", pytorch_official_compile_add_rms_norm_func],
     1: ["CUDA_NOT_FUSION_TLP", add_rms_norm_not_fusion_cuda],
     2: ["CUDA_FUSION_TLP", add_rms_norm_fusion_cuda],
+    3: ["CUDA_FUSION_TLP_512", add_rms_norm_fusion_cuda_512],
+    4: ["CUDA_FUSION_TLP_Pack64", add_rms_norm_fusion_cuda_pack64],
 }
 
 def verify_correctness(x, residual, weight, tol=1e-2):
