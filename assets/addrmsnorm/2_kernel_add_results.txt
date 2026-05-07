@@ -1,0 +1,10 @@
+Running kernel 2: CUDA_FUSION_TLP on cuda:0.
+--------------------------------------------------------------------------------
+Shape(B=1  , Seq=   1, Hidden=4096) | Time:    6.11 µs | Bandwidth:     6.9 GB/s
+Shape(B=2  , Seq=   1, Hidden=4096) | Time:    4.99 µs | Bandwidth:    12.0 GB/s
+Shape(B=4  , Seq=   1, Hidden=4096) | Time:    4.99 µs | Bandwidth:    19.6 GB/s
+Shape(B=8  , Seq=   1, Hidden=4096) | Time:    5.02 µs | Bandwidth:    34.1 GB/s
+Shape(B=16 , Seq=   1, Hidden=4096) | Time:    5.06 µs | Bandwidth:    62.9 GB/s
+Shape(B=32 , Seq=   1, Hidden=4096) | Time:    5.28 µs | Bandwidth:   116.9 GB/s
+Shape(B=64 , Seq=   1, Hidden=4096) | Time:    6.08 µs | Bandwidth:   204.0 GB/s
+Shape(B=128, Seq=   1, Hidden=4096) | Time:    8.48 µs | Bandwidth:   336.7 GB/s

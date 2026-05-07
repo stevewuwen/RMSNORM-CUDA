@@ -1,0 +1,10 @@
+Running kernel 3: CUDA_FUSION_TLP_512 on cuda:0.
+--------------------------------------------------------------------------------
+Shape(B=1  , Seq=   1, Hidden=4096) | Time:    5.60 µs | Bandwidth:     7.4 GB/s
+Shape(B=2  , Seq=   1, Hidden=4096) | Time:    4.67 µs | Bandwidth:    12.9 GB/s
+Shape(B=4  , Seq=   1, Hidden=4096) | Time:    4.67 µs | Bandwidth:    20.8 GB/s
+Shape(B=8  , Seq=   1, Hidden=4096) | Time:    4.67 µs | Bandwidth:    36.0 GB/s
+Shape(B=16 , Seq=   1, Hidden=4096) | Time:    4.74 µs | Bandwidth:    66.5 GB/s
+Shape(B=32 , Seq=   1, Hidden=4096) | Time:    5.18 µs | Bandwidth:   118.6 GB/s
+Shape(B=64 , Seq=   1, Hidden=4096) | Time:    6.18 µs | Bandwidth:   200.5 GB/s
+Shape(B=128, Seq=   1, Hidden=4096) | Time:    8.03 µs | Bandwidth:   359.6 GB/s

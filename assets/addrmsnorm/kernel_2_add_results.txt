@@ -1,0 +1,10 @@
+Running kernel 2: CUDA_FUSION_TLP on cuda:0.
+--------------------------------------------------------------------------------
+Shape(B=1  , Seq=   1, Hidden=4096) | Sum Time:    6.08 µs | Avg BW:     6.9 GB/s
+Shape(B=2  , Seq=   1, Hidden=4096) | Sum Time:    5.02 µs | Avg BW:    11.9 GB/s
+Shape(B=4  , Seq=   1, Hidden=4096) | Sum Time:    4.99 µs | Avg BW:    19.7 GB/s
+Shape(B=8  , Seq=   1, Hidden=4096) | Sum Time:    5.09 µs | Avg BW:    33.6 GB/s
+Shape(B=16 , Seq=   1, Hidden=4096) | Sum Time:    5.12 µs | Avg BW:    62.4 GB/s
+Shape(B=32 , Seq=   1, Hidden=4096) | Sum Time:    5.28 µs | Avg BW:   116.6 GB/s
+Shape(B=64 , Seq=   1, Hidden=4096) | Sum Time:    6.05 µs | Avg BW:   204.9 GB/s
+Shape(B=128, Seq=   1, Hidden=4096) | Sum Time:    8.48 µs | Avg BW:   336.6 GB/s
