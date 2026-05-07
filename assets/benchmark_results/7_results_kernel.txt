@@ -1,0 +1,10 @@
+Running kernel 7: CUDA_Pack128 on cuda:0.
+--------------------------------------------------------------------------------
+Shape(B=1, Seq=   1, Hidden=4096) | Time:    5.76 µs | Bandwidth:    5.5 GB/s
+Shape(B=2, Seq=   1, Hidden=4096) | Time:    4.74 µs | Bandwidth:    8.5 GB/s
+Shape(B=4, Seq=   1, Hidden=4096) | Time:    4.70 µs | Bandwidth:   12.5 GB/s
+Shape(B=8, Seq=   1, Hidden=4096) | Time:    4.74 µs | Bandwidth:   20.3 GB/s
+Shape(B=16, Seq=   1, Hidden=4096) | Time:    4.77 µs | Bandwidth:   35.3 GB/s
+Shape(B=32, Seq=   1, Hidden=4096) | Time:    4.96 µs | Bandwidth:   64.0 GB/s
+Shape(B=64, Seq=   1, Hidden=4096) | Time:    5.50 µs | Bandwidth:  112.5 GB/s
+Shape(B=128, Seq=   1, Hidden=4096) | Time:    7.01 µs | Bandwidth:  181.5 GB/s

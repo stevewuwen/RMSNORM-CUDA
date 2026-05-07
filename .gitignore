@@ -2,7 +2,6 @@ __pycache__
 build
 .cache
 .vscode
-benchmark_results
 .clangd
 benchmark_results.png
 **/*.ncu-rep

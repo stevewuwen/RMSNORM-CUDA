@@ -92,7 +92,7 @@ def plot(df: pd.DataFrame):
         hue_order=unique_labels,
         marker="o",  # 添加圆点标记
         markersize=10,  # 放大标记点
-        linewidth=3,  # 加粗折线
+        linewidth=2,  # 加粗折线
     )
 
     # 设置 X 轴为对数坐标
@@ -106,7 +106,7 @@ def plot(df: pd.DataFrame):
 
     # 4. 图例外置及美化
     plt.legend(
-        title="算子名称 (Kernels)",
+        title="算子名称",
         bbox_to_anchor=(1.02, 1),
         loc="upper left",
         borderaxespad=0.0,
@@ -115,9 +115,9 @@ def plot(df: pd.DataFrame):
     )
 
     # 5. 修改为中文文本，并调整边距
-    plt.title("不同 RMS Norm 算子性能对比", pad=20, fontweight="bold")
-    plt.xlabel("批次大小 (Batch Size)")
-    plt.ylabel("显存带宽 (Bandwidth, GB/s)")
+    plt.title("不同 RMSNorm 算子性能对比", pad=20, fontweight="bold")
+    plt.xlabel("批次大小")
+    plt.ylabel("显存带宽 (GB/s)")
 
     # 增加细微的网格线方便对齐数据
     plt.grid(True, which="major", linestyle="--", alpha=0.7)
@@ -125,7 +125,7 @@ def plot(df: pd.DataFrame):
 
     plt.tight_layout()
 
-    plt.savefig(save_dir / "benchmark_results.png", bbox_inches="tight")
+    plt.savefig(save_dir / "benchmark_results.pdf", bbox_inches="tight")
 
 
 if __name__ == "__main__":
