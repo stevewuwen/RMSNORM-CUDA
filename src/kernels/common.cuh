@@ -1,7 +1,7 @@
 #pragma once
 #include <cuda_runtime.h>
 
-// 1. Warp 级别归约求和 (使用更快的 XOR 蝶形规约)
+// 1. Warp 级别归约求和 (使用更快的 XOR 树形规约)
 inline __device__ float warpReduceSum(float val) {
 #pragma unroll
   for (int mask = 16; mask > 0; mask >>= 1) {

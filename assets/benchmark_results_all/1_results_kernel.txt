@@ -1,0 +1,10 @@
+Running kernel 1: Triton_Custom on cuda:0.
+--------------------------------------------------------------------------------
+Shape(B=1, Seq=   1, Hidden=4096) | Time:    4.45 µs | Bandwidth:    5.3 GB/s
+Shape(B=2, Seq=   1, Hidden=4096) | Time:    3.84 µs | Bandwidth:    8.5 GB/s
+Shape(B=4, Seq=   1, Hidden=4096) | Time:    3.78 µs | Bandwidth:   13.6 GB/s
+Shape(B=8, Seq=   1, Hidden=4096) | Time:    3.90 µs | Bandwidth:   22.4 GB/s
+Shape(B=16, Seq=   1, Hidden=4096) | Time:    3.94 µs | Bandwidth:   40.4 GB/s
+Shape(B=32, Seq=   1, Hidden=4096) | Time:    4.16 µs | Bandwidth:   73.8 GB/s
+Shape(B=64, Seq=   1, Hidden=4096) | Time:    4.90 µs | Bandwidth:  124.0 GB/s
+Shape(B=128, Seq=   1, Hidden=4096) | Time:    5.98 µs | Bandwidth:  205.2 GB/s
