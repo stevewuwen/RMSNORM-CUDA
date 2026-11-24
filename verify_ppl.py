@@ -4,12 +4,17 @@ from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from datasets import load_dataset
 import torch.nn as nn
+import sys
+
+sys.path.append("build")
 from build import rmsnorm_cuda
+
 
 class CustomTLPRMSNorm(nn.Module):
     """
     用来替换 Qwen 官方 RMSNorm 的自定义 Wrapper 层
     """
+
     def __init__(self, hidden_size, eps=1e-6):
         super().__init__()
         self.weight = nn.Parameter(torch.ones(hidden_size))
@@ -18,8 +23,11 @@ class CustomTLPRMSNorm(nn.Module):
     def forward(self, hidden_states):
         y = torch.empty_like(hidden_states)
         stream = torch.cuda.current_stream().cuda_stream
-        rmsnorm_cuda.launch_rmsnorm(5, hidden_states, self.weight, y, self.variance_epsilon, stream)
+        rmsnorm_cuda.launch_rmsnorm(
+            7, hidden_states, self.weight, y, self.variance_epsilon, stream
+        )
         return y
+
 
 def replace_rmsnorm_with_custom(model):
     """
@@ -32,12 +40,12 @@ def replace_rmsnorm_with_custom(model):
             # 获取原层参数
             hidden_size = module.weight.shape[0]
             eps = module.variance_epsilon
-            
+
             # 创建新层并拷贝权重
             new_layer = CustomTLPRMSNorm(hidden_size, eps)
             new_layer.weight.data.copy_(module.weight.data)
             new_layer = new_layer.to(module.weight.device).to(module.weight.dtype)
-            
+
             # 替换！
             setattr(model, name, new_layer)
             replaced_count += 1
@@ -45,6 +53,7 @@ def replace_rmsnorm_with_custom(model):
             # 递归
             replaced_count += replace_rmsnorm_with_custom(module)
     return replaced_count
+
 
 def evaluate_wikitext2_ppl(model, tokenizer, device="cuda:0", stride=2048):
     """
@@ -54,12 +63,17 @@ def evaluate_wikitext2_ppl(model, tokenizer, device="cuda:0", stride=2048):
     test = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
     encodings = tokenizer("\n\n".join(test["text"]), return_tensors="pt")
 
-    max_length = model.config.sliding_window if hasattr(model.config, "sliding_window") and model.config.sliding_window is not None else 2048
+    max_length = (
+        model.config.sliding_window
+        if hasattr(model.config, "sliding_window")
+        and model.config.sliding_window is not None
+        else 2048
+    )
     seq_len = encodings.input_ids.size(1)
 
     nlls = []
     prev_end_loc = 0
-    
+
     print(f"Evaluating PPL (Total tokens: {seq_len})...")
     for begin_loc in tqdm(range(0, seq_len, stride)):
         end_loc = min(begin_loc + max_length, seq_len)
@@ -78,41 +92,46 @@ def evaluate_wikitext2_ppl(model, tokenizer, device="cuda:0", stride=2048):
         prev_end_loc = end_loc
         if end_loc == seq_len:
             break
-    
+
     ppl = torch.exp(torch.stack(nlls).mean().float())
     return ppl.item()
 
+
 if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model_id = "Qwen/Qwen3-0.6B" # 你可以使用 0.5B 或更小的模型快速验证
-    
+    model_id = "Qwen/Qwen3-0.6B"  # 你可以使用 0.5B 或更小的模型快速验证
+
     print(f"Loading official model {model_id}...")
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     # 使用 float16 匹配你的 CUDA 混合精度环境
     model_baseline = AutoModelForCausalLM.from_pretrained(
         model_id, dtype=torch.float16, device_map=None
-    ).to('cuda:0')
-    
+    ).to("cuda:0")
+
     # 1. 跑官方基线 PPL
     print("\n--- Running Baseline (Official PyTorch/Triton RMSNorm) ---")
     baseline_ppl = evaluate_wikitext2_ppl(model_baseline, tokenizer, device=device)
     print(f"✅ Baseline WikiText-2 PPL: {baseline_ppl:.4f}")
-    
+
     # 2. 替换算子并跑你的模型 PPL
     print("\n--- Replacing RMSNorm with Custom CUDA_TLP ---")
     replaced_num = replace_rmsnorm_with_custom(model_baseline)
     print(f"Replaced {replaced_num} RMSNorm layers.")
-    
+
     print("\n--- Running Custom Op (CUDA_TLP) ---")
     custom_ppl = evaluate_wikitext2_ppl(model_baseline, tokenizer, device=device)
     print(f"✅ Custom Op WikiText-2 PPL: {custom_ppl:.4f}")
-    
+
     # 3. 结论
     print("\n================= SUMMARY =================")
     print(f"Baseline PPL : {baseline_ppl:.4f}")
     print(f"Custom PPL   : {custom_ppl:.4f}")
     print(f"Absolute Diff: {abs(baseline_ppl - custom_ppl):.6f}")
     if abs(baseline_ppl - custom_ppl) < 0.1:
-        print("🚀 Success! The mathematical deviation does not affect end-to-end model performance.")
+        print(
+            "🚀 Success! The mathematical deviation does not affect end-to-end model performance."
+        )
     else:
-        print("⚠️ Warning: Significant PPL degradation detected. Check your kernel math.")
+        print(
+            "⚠️ Warning: Significant PPL degradation detected. Check your kernel math."
+        )

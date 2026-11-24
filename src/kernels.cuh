@@ -7,3 +7,4 @@
 #include "kernels/3_shared_memory.cuh"
 #include "kernels/4_pack128.cuh"
 #include "kernels/4_pack64.cuh"
+#include "kernels/4_pack64_origin.cuh"
