@@ -56,6 +56,10 @@ def parse_file(file):
         elif r := re.search(data_pattern, line):
             data["batch_size"].append(int(r.group(1)))
             data["bandwidth"].append(float(r.group(2)))
+            if kernel_name == "CUDA_TLP":
+                kernel_name = "有三阶段无锁树形规约算法"
+            elif kernel_name == "CUDA_TLP_Origin":
+                kernel_name = "无三阶段无锁树形规约算法"
             data["kernel_name"].append(kernel_name)
 
     return data
@@ -69,16 +73,10 @@ def plot(df: pd.DataFrame):
 
     plt.figure(figsize=(18, 10))
 
-    df["kernel_label"] = df.apply(
-        lambda row: f"{row['kernel']}: {row['kernel_name']}", axis=1
-    )
+    df["kernel_label"] = df["kernel_name"]
 
-    # 1. 获取排序后的 kernel 列表，确保顺序一致
-    unique_labels = sorted(
-        df["kernel_label"].unique(), key=lambda x: int(x.split(":")[0])
-    )
+    unique_labels = df["kernel_label"].unique()
 
-    # 2. 生成颜色，并创建一个严格的 {label: color} 映射字典
     colors = sn.color_palette("husl", len(unique_labels))
     color_map = dict(zip(unique_labels, colors))
 
@@ -125,7 +123,7 @@ def plot(df: pd.DataFrame):
 
     plt.tight_layout()
 
-    plt.savefig(save_dir / "benchmark_results.pdf", bbox_inches="tight")
+    plt.savefig(save_dir / "图5-3.pdf", bbox_inches="tight")
 
 
 if __name__ == "__main__":
@@ -165,57 +163,3 @@ if __name__ == "__main__":
 
     df = pd.DataFrame(data)
     plot(df)
-
-    KERNEL_NAMES = (
-        df.drop_duplicates("kernel").set_index("kernel")["kernel_name"].to_dict()
-    )
-
-    # 动态获取最大的 batch_size 作为 README 表格的数据对比
-    max_batch_size = df["batch_size"].max()
-    df_table = (
-        df[df["batch_size"] == max_batch_size]
-        .sort_values(by="bandwidth", ascending=True)[["kernel", "bandwidth"]]
-        .copy()
-    )
-
-    df_table["kernel"] = df_table["kernel"].map(lambda k: f"{k}: {KERNEL_NAMES[k]}")
-
-    base_idx = 0 if 0 in KERNEL_NAMES else min(KERNEL_NAMES.keys())
-    baseline_kernel_name = f"{base_idx}: {KERNEL_NAMES[base_idx]}"
-
-    baseline_bandwidth = df_table[df_table["kernel"] == baseline_kernel_name][
-        "bandwidth"
-    ].iloc[0]
-    df_table["relperf"] = df_table["bandwidth"] / baseline_bandwidth
-    df_table["relperf"] = df_table["relperf"].apply(lambda x: f"{x * 100:.1f}%")
-    df_table.columns = [
-        "Kernel",
-        "Bandwidth (GB/s)",
-        f"Performance relative to {KERNEL_NAMES[base_idx]}",
-    ]
-
-    readme_path = Path("README.md")
-    if readme_path.exists():
-        with open(readme_path, "r", encoding="utf-8") as f:
-            readme = f.read()
-
-        if "<!-- benchmark_results -->" in readme:
-            readme = re.sub(
-                r"<!-- benchmark_results -->.*<!-- benchmark_results -->",
-                "<!-- benchmark_results -->\n{}\n<!-- benchmark_results -->".format(
-                    df_table.to_markdown(index=False)
-                ),
-                readme,
-                flags=re.DOTALL,
-            )
-            with open(readme_path, "w", encoding="utf-8") as f:
-                f.write(readme)
-            print("Successfully updated README.md.")
-        else:
-            print("No <!-- benchmark_results --> tag found in README.md.")
-            print(f"\n--- Markdown Table (Max Batch Size = {max_batch_size}) ---")
-            print(df_table.to_markdown(index=False))
-    else:
-        print("README.md not found.")
-        print(f"\n--- Markdown Table (Max Batch Size = {max_batch_size}) ---")
-        print(df_table.to_markdown(index=False))

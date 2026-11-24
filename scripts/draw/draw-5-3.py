@@ -4,134 +4,185 @@ import matplotlib.pyplot as plt
 import seaborn as sn
 import pandas as pd
 from pathlib import Path
+from matplotlib.ticker import ScalarFormatter
 
-# ================= 样式与字体设置优化 =================
-# 使用更清爽明亮的白底网格主题
+# ================= 样式与字体设置 =================
 matplotlib.style.use("seaborn-v0_8-whitegrid")
 
-# 设置中文字体（按优先级：微软雅黑(Win), 黑体(Win), 苹方(Mac), 默认无衬线）
-plt.rcParams["font.sans-serif"] = ["WenQuanYi Micro Hei"]
-# 修复中文字体下负号显示为方块的问题
+plt.rcParams["font.sans-serif"] = [
+    "WenQuanYi Micro Hei",
+    "Microsoft YaHei",
+    "SimHei",
+    "PingFang SC",
+    "Arial Unicode MS",
+]
 plt.rcParams["axes.unicode_minus"] = False
 
-# 全局调大字体大小
 plt.rcParams.update(
     {
-        "figure.dpi": 200,
+        "figure.dpi": 400,
         "savefig.facecolor": "white",
-        "axes.titlesize": 24,  # 图表标题字体大小
-        "axes.labelsize": 18,  # 坐标轴标签字体大小
-        "xtick.labelsize": 14,  # X轴刻度数字大小
-        "ytick.labelsize": 14,  # Y轴刻度数字大小
-        "legend.fontsize": 14,  # 图例字体大小
-        "legend.title_fontsize": 16,  # 图例标题字体大小
+        "axes.titlesize": 38,
+        "axes.labelsize": 32,
+        "xtick.labelsize": 24,
+        "ytick.labelsize": 24,
+        "legend.fontsize": 24,
+        "legend.title_fontsize": 26,
     }
 )
-# ======================================================
+# ==================================================
 
 
-def parse_file(file):
+def rename_kernel(kernel_name: str) -> str:
+    """将原始 kernel 名称映射为论文图中的中文名称"""
+    name_map = {
+        "CUDA_TLP": "有三阶段无锁树形规约算法",
+        "CUDA_TLP_Origin": "无三阶段无锁树形规约算法",
+        "PyTorch_Pure_Python": "PyTorch 原生实现",
+        "PyTorch_Official_Compile": "PyTorch Compile",
+    }
+    return name_map.get(kernel_name, kernel_name)
+
+
+def parse_file(file: Path):
     """
-    The data we want to parse has this format:
-    Running kernel 0: PyTorch_Pure_Python on cuda:0.
-    --------------------------------------------------------------------------------
-    Shape(B=4, Seq= 128, Hidden=4096) | Time:  118.34 µs | Bandwidth:   71.0 GB/s
+    解析 benchmark 结果文件。
+
+    示例格式：
+    Running kernel 6: CUDA_TLP on cuda:0.
+    Shape(B=1, Seq=   1, Hidden=4096) | Time:    4.29 µs | Bandwidth:    5.4 GB/s
     """
-    with open(file, "r") as f:
+    with open(file, "r", encoding="utf-8") as f:
         lines = [line.strip() for line in f.readlines()]
 
-    data = {"batch_size": [], "bandwidth": [], "kernel_name": []}
+    data = {
+        "batch_size": [],
+        "latency_us": [],
+        "bandwidth": [],
+        "kernel_name": [],
+    }
+
     kernel_name = "Unknown"
 
-    # 解析正则
-    kernel_pattern = r"Running kernel \d+: (.*?) on"
-    # 提取 B 和 Bandwidth (GB/s)
-    data_pattern = r"Shape\(B=(\d+).*?\).*?Bandwidth:\s*([\d.]+)\s*GB/s"
+    kernel_pattern = r"Running kernel \d+:\s*(.*?)\s*on"
+    data_pattern = (
+        r"Shape\(B=(\d+).*?\)"
+        r"\s*\|\s*Time:\s*([\d.]+)\s*[µu]s"
+        r"\s*\|\s*Bandwidth:\s*([\d.]+)\s*GB/s"
+    )
 
     for line in lines:
-        print(line)
-        # 匹配 Kernel 名称
-        if r := re.search(kernel_pattern, line):
-            kernel_name = r.group(1).strip()
-        # 匹配性能数据
-        elif r := re.search(data_pattern, line):
-            data["batch_size"].append(int(r.group(1)))
-            data["bandwidth"].append(float(r.group(2)))
-            data["kernel_name"].append(kernel_name)
+        kernel_match = re.search(kernel_pattern, line)
+        if kernel_match:
+            kernel_name = kernel_match.group(1).strip()
+            continue
+
+        data_match = re.search(data_pattern, line)
+        if data_match:
+            batch_size = int(data_match.group(1))
+            latency_us = float(data_match.group(2))
+            bandwidth = float(data_match.group(3))
+
+            data["batch_size"].append(batch_size)
+            data["latency_us"].append(latency_us)
+            data["bandwidth"].append(bandwidth)
+            data["kernel_name"].append(rename_kernel(kernel_name))
 
     return data
 
 
+def format_x_axis(ax, batch_sizes):
+    """统一设置 BatchSize 横坐标"""
+    ax.set_xscale("log", base=2)
+    ax.xaxis.set_major_formatter(ScalarFormatter())
+    ax.set_xticks(batch_sizes)
+    ax.set_xticklabels(batch_sizes, rotation=45, ha="right")
+    ax.set_xlabel("BatchSize")
+
+    ax.grid(True, which="major", linestyle="--", alpha=0.7)
+    ax.grid(True, which="minor", linestyle=":", alpha=0.4)
+
+
 def plot(df: pd.DataFrame):
-    """
-    The dataframe has 4 columns: kernel, batch_size, bandwidth, kernel_name
-    """
     save_dir = Path.cwd()
 
-    plt.figure(figsize=(18, 10))
+    df = df.sort_values(["kernel_name", "batch_size"])
+    df["kernel_label"] = df["kernel_name"]
 
-    df["kernel_label"] = df.apply(
-        lambda row: f"{row['kernel']}: {row['kernel_name']}", axis=1
+    batch_sizes = sorted(df["batch_size"].unique())
+    kernel_labels = list(df["kernel_label"].unique())
+
+    colors = sn.color_palette("husl", len(kernel_labels))
+    color_map = dict(zip(kernel_labels, colors))
+
+    fig, axes = plt.subplots(
+        1,
+        2,
+        figsize=(26, 10),
+        sharex=True,
     )
 
-    # 1. 获取排序后的 kernel 列表，确保顺序一致
-    unique_labels = sorted(
-        df["kernel_label"].unique(), key=lambda x: int(x.split(":")[0])
-    )
+    ax_bw, ax_latency = axes
 
-    # 2. 生成颜色，并创建一个严格的 {label: color} 映射字典
-    colors = sn.color_palette("husl", len(unique_labels))
-    color_map = dict(zip(unique_labels, colors))
-    print(df)
+    # ================= 左图：带宽 =================
+    for label in kernel_labels:
+        sub_df = df[df["kernel_label"] == label]
 
-    # 3. 绘制折线图与散点图 (合并在一起，并加粗线条和点)
-    sn.lineplot(
-        data=df,
-        x="batch_size",
-        y="bandwidth",
-        hue="kernel_label",
-        palette=color_map,
-        hue_order=unique_labels,
-        marker="o",  # 添加圆点标记
-        markersize=10,  # 放大标记点
-        linewidth=2,  # 加粗折线
-    )
+        ax_bw.plot(
+            sub_df["batch_size"],
+            sub_df["bandwidth"],
+            marker="o",
+            markersize=11,
+            linewidth=3.2,
+            color=color_map[label],
+            label=label,
+        )
 
-    # 设置 X 轴为对数坐标
-    plt.xscale("log", base=2)
-    from matplotlib.ticker import ScalarFormatter
+    ax_bw.set_title("显存带宽对比", pad=18, fontweight="bold")
+    ax_bw.set_ylabel("显存带宽 (GB/s)")
+    format_x_axis(ax_bw, batch_sizes)
 
-    plt.gca().xaxis.set_major_formatter(ScalarFormatter())
+    # ================= 右图：延迟 =================
+    for label in kernel_labels:
+        sub_df = df[df["kernel_label"] == label]
 
-    plt.xticks(df["batch_size"].unique(), df["batch_size"].unique())
-    plt.xticks(rotation=45, ha="right", rotation_mode="anchor")
+        ax_latency.plot(
+            sub_df["batch_size"],
+            sub_df["latency_us"],
+            marker="o",
+            markersize=11,
+            linewidth=3.2,
+            color=color_map[label],
+            label=label,
+        )
 
-    # 4. 图例外置及美化
-    plt.legend(
+    ax_latency.set_title("执行延迟对比", pad=18, fontweight="bold")
+    ax_latency.set_ylabel("延迟 (µs)")
+    format_x_axis(ax_latency, batch_sizes)
+
+    # ================= 顶部统一图例 =================
+    handles, labels = ax_bw.get_legend_handles_labels()
+
+    fig.legend(
+        handles,
+        labels,
         title="算子名称",
-        bbox_to_anchor=(1.02, 1),
-        loc="upper left",
-        borderaxespad=0.0,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.08),
+        ncol=min(len(labels), 3),
         frameon=True,
-        shadow=True,  # 给图例加个阴影更好看
+        shadow=True,
+        columnspacing=1.8,
+        handlelength=2.8,
     )
 
-    # 5. 修改为中文文本，并调整边距
-    plt.title("不同 RMSNorm 算子性能对比", pad=20, fontweight="bold")
-    plt.xlabel("批次大小")
-    plt.ylabel("显存带宽 (GB/s)")
+    plt.tight_layout(rect=[0, 0, 1, 0.92])
 
-    # 增加细微的网格线方便对齐数据
-    plt.grid(True, which="major", linestyle="--", alpha=0.7)
-    plt.grid(True, which="minor", linestyle=":", alpha=0.4)
-
-    plt.tight_layout()
-
-    plt.savefig(save_dir / "benchmark_results_t.pdf", bbox_inches="tight")
+    plt.savefig("assets/图5-3.pdf", bbox_inches="tight")
 
 
 if __name__ == "__main__":
-    results_dir = Path("benchmark_results")
+    results_dir = Path("assets/tree_result")
 
     if not results_dir.exists():
         results_dir.mkdir()
@@ -139,16 +190,19 @@ if __name__ == "__main__":
     assert results_dir.is_dir(), "Benchmark results directory not found!"
 
     data = []
+
     for filename in results_dir.glob("*.txt"):
         stem_parts = filename.stem.split("_")
+
         if not stem_parts[0].isdigit():
             continue
+
         kernel_nr = int(stem_parts[0])
         results_dict = parse_file(filename)
 
-        # 遍历解析出的 batch_size 和 bandwidth 列表
-        for b_size, bw, k_name in zip(
+        for b_size, latency, bw, k_name in zip(
             results_dict["batch_size"],
+            results_dict["latency_us"],
             results_dict["bandwidth"],
             results_dict["kernel_name"],
         ):
@@ -156,6 +210,7 @@ if __name__ == "__main__":
                 {
                     "kernel": kernel_nr,
                     "batch_size": b_size,
+                    "latency_us": latency,
                     "bandwidth": bw,
                     "kernel_name": k_name,
                 }

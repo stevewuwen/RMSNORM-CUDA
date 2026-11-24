@@ -1,224 +1,291 @@
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from pathlib import Path
 
-# 设置中文字体，防止中文显示乱码
+# ==================== 字体与全局样式 ====================
 plt.rcParams["font.sans-serif"] = ["WenQuanYi Micro Hei"]
 plt.rcParams["axes.unicode_minus"] = False
+plt.rcParams["pdf.fonttype"] = 42
+plt.rcParams["ps.fonttype"] = 42
 
-fig, ax = plt.subplots(figsize=(15, 9), dpi=150)
-ax.set_xlim(-22, 172)
-ax.set_ylim(-2, 112)
-ax.axis("off")  # 隐藏原始坐标轴
+# 字体放大倍数
+FONT_SCALE = 3
 
-# 访存数据块颜色
-col_scalar = "#FF6B6B"  # 红色（低效）
-col_pack64 = "#4D96FF"  # 蓝色（均衡）
-col_pack128 = "#20BF55"  # 绿色（满载）
+# 原始字体大小 × 3
+FS_LEGEND = 11 * FONT_SCALE
+FS_LEGEND_SMALL = 10 * FONT_SCALE
+FS_ROW_NAME = 14 * FONT_SCALE
+FS_BLOCK = 9 * FONT_SCALE
+FS_RIGHT = 11 * FONT_SCALE
 
-# 状态与背景
+# ==================== 画布设置 ====================
+fig, ax = plt.subplots(figsize=(28, 16), dpi=200)
+
+ax.set_xlim(-90, 680)
+ax.set_ylim(-10, 390)
+ax.axis("off")
+
+# ==================== 颜色设置 ====================
+col_scalar = "#FF6B6B"  # 标量访存
+col_pack64 = "#4D96FF"  # Pack64
+col_pack128 = "#20BF55"  # Pack128
+
 col_bg = "#F3F4F7"
 col_empty = "#E0E0E0"
 col_text_main = "#2B2D42"
 col_text_sub = "#6C757D"
 
-# 寄存器压力颜色梯度
-col_reg_low = "#88D49E"  # 安全
-col_reg_mid = "#FFD166"  # 适中
-col_reg_high = "#EF476F"  # 危险
+col_reg_low = "#88D49E"
+col_reg_mid = "#FFD166"
+col_reg_high = "#EF476F"
 
-# ==================== 顶部自解释图例 ====================
-# 访存总线图例
+# ==================== 顶部图例 ====================
+legend_y = 350
+
+# 128-bit 总线图例
 ax.add_patch(
     patches.Rectangle(
-        (0, 102),
-        10,
-        4,
+        (40, legend_y),
+        42,
+        16,
         facecolor=col_empty,
-        edgecolor="#888",
+        edgecolor="#888888",
         linestyle="--",
-        lw=1.5,
+        lw=2.5,
     )
 )
-ax.text(12, 104, "128-bit总线", va="center", fontsize=11)
-
-ax.add_patch(
-    patches.Rectangle((58, 102), 6, 4, facecolor="#4D96FF", edgecolor="white", lw=1)
+ax.text(
+    95,
+    legend_y + 8,
+    "128-bit 总线",
+    va="center",
+    fontsize=FS_LEGEND,
+    color=col_text_main,
 )
-ax.text(66, 104, "有效 FP16 数据", va="center", fontsize=11)
+
+# 有效 FP16 数据图例
+ax.add_patch(
+    patches.Rectangle(
+        (250, legend_y),
+        42,
+        16,
+        facecolor=col_pack64,
+        edgecolor="white",
+        lw=2,
+    )
+)
+ax.text(
+    305,
+    legend_y + 8,
+    "有效 FP16 数据",
+    va="center",
+    fontsize=FS_LEGEND,
+    color=col_text_main,
+)
 
 # 寄存器压力图例
-ax.text(102, 104, "寄存器占用:", va="center", fontsize=11)
+ax.text(
+    475,
+    legend_y + 8,
+    "寄存器占用:",
+    va="center",
+    fontsize=FS_LEGEND,
+    color=col_text_main,
+)
+
 colors = [col_reg_low, col_reg_mid, col_reg_high]
 labels = ["低", "中", "高"]
+
 for i in range(3):
     ax.add_patch(
         patches.Rectangle(
-            (128 + i * 11, 102), 4, 4, facecolor=colors[i], edgecolor="none"
+            (575 + i * 35, legend_y),
+            14,
+            16,
+            facecolor=colors[i],
+            edgecolor="none",
         )
     )
-    ax.text(133 + i * 11, 104, labels[i], va="center", fontsize=10)
+    ax.text(
+        594 + i * 35,
+        legend_y + 8,
+        labels[i],
+        va="center",
+        fontsize=FS_LEGEND_SMALL,
+        color=col_text_main,
+    )
 
 
-# ==================== 绘制行函数 ====================
+# ==================== 绘制单行函数 ====================
 def draw_row(y, name, align, fp16_count, reg_level, util_str, req_str):
-    # 总线基准坐标
-    x_start = 12
-    bus_w = 112  # 112对应128-bit物理总线宽度 (1单位 = 1.14 bit)
-    fp16_w = 14  # 每个 FP16 占 16-bit，物理宽度为14
+    x_start = 150
 
-    # 1. 绘制 128-bit 总线背景
+    # 128-bit 总线宽度：8 个 FP16 × 每块 45
+    fp16_w = 45
+    bus_w = fp16_w * 8
+
+    bus_h = 30
+    reg_h = 10
+
+    # 1. 总线背景
     ax.add_patch(
         patches.Rectangle(
-            (x_start, y + 8),
+            (x_start, y + 34),
             bus_w,
-            8,
+            bus_h,
             facecolor=col_bg,
             edgecolor="#A0A0A0",
             linestyle="--",
-            lw=1.5,
+            lw=2.5,
             zorder=1,
         )
     )
 
-    # 2. 绘制有效 FP16 数据块
-    color_map = {1: col_scalar, 4: col_pack64, 8: col_pack128}
+    # 2. 有效 FP16 数据块
+    color_map = {
+        1: col_scalar,
+        4: col_pack64,
+        8: col_pack128,
+    }
     current_color = color_map[fp16_count]
 
     for i in range(fp16_count):
         rect = patches.Rectangle(
-            (x_start + i * fp16_w, y + 8),
+            (x_start + i * fp16_w, y + 34),
             fp16_w,
-            8,
+            bus_h,
             facecolor=current_color,
             edgecolor="white",
-            lw=1.5,
+            lw=2.5,
             zorder=2,
         )
         ax.add_patch(rect)
-        # 在数据块内印上“F16”
+
         ax.text(
             x_start + i * fp16_w + fp16_w / 2,
-            y + 12,
+            y + 34 + bus_h / 2,
             "FP16",
             color="white",
             ha="center",
             va="center",
-            fontsize=9,
+            fontsize=FS_BLOCK,
             fontweight="bold",
             zorder=3,
         )
 
-    # 绘制多余的空载区域指示
+    # 3. 空载区域
     if fp16_count < 8:
-        empty_w = bus_w - (fp16_count * fp16_w)
+        empty_w = bus_w - fp16_count * fp16_w
         ax.add_patch(
             patches.Rectangle(
-                (x_start + fp16_count * fp16_w, y + 8),
+                (x_start + fp16_count * fp16_w, y + 34),
                 empty_w,
-                8,
+                bus_h,
                 facecolor=col_empty,
                 edgecolor="none",
-                alpha=0.4,
+                alpha=0.45,
                 zorder=1,
             )
         )
 
-    # 3. 新增：寄存器压力条（下半部分）
-    reg_w_map = {1: 14, 2: 56, 3: 112}  # 压力宽度映射
-    reg_col_map = {1: col_reg_low, 2: col_reg_mid, 3: col_reg_high}
+    # 4. 寄存器压力条
+    reg_w_map = {
+        1: bus_w * 0.125,
+        2: bus_w * 0.5,
+        3: bus_w,
+    }
+    reg_col_map = {
+        1: col_reg_low,
+        2: col_reg_mid,
+        3: col_reg_high,
+    }
 
-    # 背景槽
     ax.add_patch(
         patches.Rectangle(
-            (x_start, y + 1),
+            (x_start, y + 12),
             bus_w,
-            3,
+            reg_h,
             facecolor="#E9ECEF",
             edgecolor="none",
             zorder=1,
         )
     )
-    # 实际占用
+
     ax.add_patch(
         patches.Rectangle(
-            (x_start, y + 1),
+            (x_start, y + 12),
             reg_w_map[reg_level],
-            3,
+            reg_h,
             facecolor=reg_col_map[reg_level],
             edgecolor="none",
             zorder=2,
         )
     )
 
-    # 4. 左侧描述区域
-    # 对齐指示线
-    align_colors = {"2字节": "#FFAAA6", "8字节": "#95D1CC", "16字节": "#A2D2FF"}
+    # 5. 左侧对齐标识线
+    align_colors = {
+        "2字节": "#FFAAA6",
+        "8字节": "#95D1CC",
+        "16字节": "#A2D2FF",
+    }
+
     ax.plot(
-        [x_start - 1, x_start - 1],
-        [y, y + 17],
+        [x_start - 18, x_start - 18],
+        [y + 4, y + 74],
         color=align_colors[align],
-        lw=4,
+        lw=8,
         solid_capstyle="round",
     )
 
+    # 6. 左侧名称
     ax.text(
-        x_start - 4,
-        y + 12,
+        x_start - 32,
+        y + 49,
         name,
         ha="right",
         va="center",
-        fontsize=14,
+        fontsize=FS_ROW_NAME,
         fontweight="bold",
         color=col_text_main,
     )
 
+    # 7. 右侧指标说明
+    right_x = x_start + bus_w + 35
+
 
 # ==================== 绘制三层对比 ====================
-# Pack128 (最上层)
 draw_row(
-    y=67,
+    y=250,
     name="向量化 Pack128",
     align="16字节",
     fp16_count=8,
     reg_level=3,
-    util_str="100.0% (满载)",
-    req_str="12.5% (最低)",
+    util_str="100.0%（满载）",
+    req_str="12.5%（最低）",
 )
 
-# Pack64 (中间层)
 draw_row(
-    y=36,
+    y=145,
     name="向量化 Pack64",
     align="8字节",
     fp16_count=4,
     reg_level=2,
-    util_str="50.0% (适中)",
-    req_str="25.0% (较低)",
+    util_str="50.0%（适中）",
+    req_str="25.0%（较低）",
 )
 
-# Scalar (最底层)
 draw_row(
-    y=5,
+    y=40,
     name="传统标量访存",
     align="2字节",
     fp16_count=1,
     reg_level=1,
-    util_str="12.5% (极低)",
-    req_str="100.0% (基准)",
+    util_str="12.5%（极低）",
+    req_str="100.0%（基准）",
 )
 
-# ==================== 标题区域 ====================
-# plt.text(
-#     75,
-#     113,
-#     "图 4-1  16-bit 标量访存与 64/128-bit 并发向量化访存综合对比图",
-#     ha="center",
-#     va="center",
-#     fontsize=16,
-#     fontweight="bold",
-#     color="black",
-# )
+# ==================== 保存 ====================
+Path("assets").mkdir(parents=True, exist_ok=True)
 
-# 调整布局并保存
 plt.tight_layout()
 plt.savefig("assets/图4-1.pdf", bbox_inches="tight")
